@@ -231,6 +231,26 @@ public:
                 return true;
         }
 
+	bool estimateGyrometerParameters( const int max_iterations = 100 )
+	{
+		if( rotation_vecs.empty() || a_pre_data.empty() || a_now_data.empty() ){
+			std::cerr<<"Input data is empty ..."<<std::endl;
+			return false;
+		}
+
+		if( rotation_vecs.size() != a_pre_data.empty() || rotation_vecs.size() != a_now_data.empty() || a_pre_data.size() != a_now_data.size() ){
+			std::cerr<<"Data size is not matched !"<<std::endl;
+			return false;
+		}
+
+		int iteration = 0;
+                for( ; iteration < max_iterations; iteration ++ ){
+                        estimateOnce( );
+                }
+
+                return true;
+	}
+
 private:
 	void estimateOnce()
 	{
@@ -247,22 +267,24 @@ private:
 		H.setZero();
 		
 		// 
-		for( size_t i = 0; i < w_pre_data.size(); i ++ ){
+		for( size_t i = 0; i < rotation_vecs.size(); i ++ ){
 			// 1. caculate error
-			Vector3 R_vector_tmp = caculateRotationVector( w_pre_data[i], w_now_data[i], delta_t );
-			Vector3 R_vector = Vector3( R_vector_tmp(0) * scales(0),
-						    R_vector_tmp(1) * scales(1),
-						    R_vector_tmp(2) * scales(2) );
+			Vector3 R_vector = Vector3( rotation_vecs(0) * scales(0),
+						    rotation_vecs(1) * scales(1),
+						    rotation_vecs(2) * scales(2) );
+
+			// 2. rotation vector -> rotation matrix
 			Vector3 R_matrix = Eigen::AngleAxis<DataType>( R_vector.norm(), R_vector / R_vector.norm() ).toRotationMatrix();		
 
+			// 3. caculate the error
 			Vector3 error = a_now_data[i] - R_matrix * a_pre_data[i];
 		
-			// 2. caculate the Jacobian Matrix
+			// 4. caculate the Jacobian Matrix
 			Matrix3 derived_Ra = getAntisymmetricMatrix( R_matrix * a_pre_data[i] );
 			Matrix3 derived_s = Matrix3::Zero();
-			derived_s( 0, 0 ) = R_vector_tmp(0);
-			derived_s( 1, 1 ) = R_vector_tmp(1);
-			derived_s( 2, 2 ) = R_vector_tmp(2);
+			derived_s( 0, 0 ) = R_vector(0);
+			derived_s( 1, 1 ) = R_vector(1);
+			derived_s( 2, 2 ) = R_vector(2);
 
 			Matrix3 Jacobian = derived_Ra * derived_s;
 
@@ -273,40 +295,143 @@ private:
 		std::cout<<"b = "<<std::endl<<b<<std::endl;
 	}	
 
-	const Vector3 caculateRotationVector( const Vector3 &w_pre,
-					      const Vector3 &w_now,
-					      const DataType delta_t )
-	{
-		return Vector3( ( w_pre(0) + w_now(0) - 2 * biases(0) ) * 0.5 * delta_t,
-		       		( w_pre(1) + w_now(1) - 2 * biases(1) ) * 0.5 * delta_t,
-				( w_pre(2) + w_now(2) - 2 * biases(2) ) * 0.5 * delta_t );
-	}
 	
-	const Matrix3 getAntisymmetricMatrix( const Vector3 &vec )
+	const Matrix3 getAntisymmetricMatrix( const Vector3 &vec ) const
 	{
 		Matrix3 mat;
 		mat <<  0,      -vec(2),    vec(1),
 		        vec(2),    0,      -vec(0),
 		       -vec(1),  vec(0),      0;
+
 		return mat;
 	}
 
-private:
+protected:
 	// Error paramters
-	Vector3 scales; // sx, sy, sz; the state of the solution
-	Vector3 biases; // bx, by, bz
+	Vector3 scales = Vector3( 1.0, 1.0, 1.0 ); // sx, sy, sz; the state of the solution
+	Vector3 biases = Vector3( 0.0, 0.0, 0.0 ); // bx, by, bz
 
 	// input data
-	std::vector<Vector3> w_pre_data; // w_k-1, angle velocity at k-1 moment
-	std::vector<Vector3> w_now_data; // w_k
+	std::vector<Vector3> rotation_vecs;
 	std::vector<Vector3> a_pre_data; // a_k_1, acceleration at k-1 moment
 	std::vector<Vector3> a_now_data; // a_k	
 	
-	DataType delta_t = 0;
 
 	Vector3 b;
 	Matrix3 H;
 };
+
+template<typename T>
+class CalibrateGyrometer : public Gyrometer<T>
+{
+public:
+	using DataType = T;
+        using Vector3 = typename Eigen::Matrix<T, 3, 1>;
+	using Vector4 = typename Eigen::Matrix<T, 4, 1>;
+	using Vector6 = typename Eigen::Matrix<T, 6, 1>;
+        using Matrix3 = typename Eigen::Matrix<T, 3, 3>;
+
+	CalibrateGyrometer()
+	{
+
+	}
+
+	~CalibrateGyrometer()
+	{
+
+	}
+
+	const Vector6& operator()( const std::vector<Vector4> &data1,
+				   const std::vector<Vector4> &data2,
+				   const std::vector<Vector4> &data3,
+				   const std::vector<Vector4> &data4,
+				   const std::vector<Vector3> pre_acc,
+				   const std::vector<Vector3> now_acc )
+	{
+		for( size_t i = 0; i < data1.size(); i ++ ){
+			Vector3 w = Vector3( data1[i](1), data1[i](2), data1[i](3) );
+			this->biases += w;
+		}
+	
+		this->biases / data1.size();
+	
+		Vector3 r_v( 0.0, 0.0, 0.0 );
+		DataType pre_time = 0;
+		Vector3 pre_w( data2[0](1) - this->biases(0), 
+			       data2[0](2) - this->biases(1), 
+			       data2[0](3) - this->biases(2) );
+		
+		// caculate the rotation by data1
+		for( size_t i = 1; i < data2.size(); i ++ ){
+			Vector3 w = Vector3( data2[i](1) - this->biases(0), 
+					     data2[i](2) - this->biases(1), 
+					     data2[i](3) - this->biases(2) );
+	
+			DataType delta_t = data2[i](0) - pre_time;
+			Vector3 w_m = 0.5 * ( w + pre_w ) * delta_t; 
+				
+			r_v += w_m; // intergrate
+		
+			pre_w = w;
+			pre_time = data2[i](0);
+		}
+		this->rotation_vecs.push_back( r_v );
+
+		r_v.setZero();
+		pre_time = 0;
+		pre_w = Vector3( data3[0](1) - this->biases(0), 
+				 data3[0](2) - this->biases(1), 
+				 data3[0](3) - this->biases(2) );
+		// caculate the rotation by data3
+                for( size_t i = 1; i < data3.size(); i ++ ){
+                        Vector3 w = Vector3( data3[i](1) - this->biases(0), 
+                                             data3[i](2) - this->biases(1), 
+                                             data3[i](3) - this->biases(2) );
+
+                        DataType delta_t = data3[i](0) - pre_time;
+                        Vector3 w_m = 0.5 * ( w + pre_w ) * delta_t;
+
+                        r_v += w_m; // intergrate
+
+                        pre_w = w;
+			pre_time = data3[i](0);
+                }
+		this->rotation_vecs.push_back( r_v );
+		
+		r_v.setZero();
+                pre_time = 0;
+                pre_w = Vector3( data4[0](1) - this->biases(0),
+                                 data4[0](2) - this->biases(1),
+                                 data4[0](3) - this->biases(2) );
+                // caculate the rotation by data4
+                for( size_t i = 1; i < data4.size(); i ++ ){
+                        Vector3 w = Vector3( data4[i](1) - this->biases(0),
+                                             data4[i](2) - this->biases(1),
+                                             data4[i](3) - this->biases(2) );
+
+                        DataType delta_t = data4[i](0) - pre_time;
+                        Vector3 w_m = 0.5 * ( w + pre_w ) * delta_t;
+
+                        r_v += w_m; // intergrate
+
+                        pre_w = w;
+                        pre_time = data4[i](0);
+                }
+		this->rotation_vecs.push_back( r_v );
+		
+		this->a_pre_data = pre_acc;
+		this->a_now_data = now_acc;
+		this->estimateGyrometerParameters();	
+
+		Vector6 ret;
+		ret.block( 0, 0, 3, 1 ) = this->biases;
+		ret.block( 3, 0, 3, 1 ) = this->scales;
+		
+		return ret;
+	}
+
+};
+
 
 }
 

@@ -15,9 +15,9 @@ int main()
 	std::vector<Eigen::Vector4d> up_accs;
 	while( !imu_read.endOfFile() ){
 		Eigen::Vector4d up_data;
-		imu_read.readFrame( up_data );
-
-		up_accs.push_back( up_data );
+		if( imu_read.readAccelerometerFrame( up_data ) ){
+			up_accs.push_back( up_data );
+		}
 	}
 	imu_read.closeFile();
 	
@@ -32,10 +32,10 @@ int main()
         std::vector<Eigen::Vector4d> down_accs;
         while( !imu_read2.endOfFile() ){
                 Eigen::Vector4d down_data;
-                imu_read2.readFrame( down_data );
-
-                down_accs.push_back( down_data );
-        }
+		if( imu_read2.readAccelerometerFrame( down_data ) ){
+                	down_accs.push_back( down_data );
+        	}
+	}
         imu_read2.closeFile();
 
 	imu::ImuRead imu_read3;
@@ -45,9 +45,9 @@ int main()
         std::vector<Eigen::Vector4d> left_accs;
         while( !imu_read3.endOfFile() ){
                 Eigen::Vector4d left_data;
-                imu_read3.readFrame( left_data );
-
-                left_accs.push_back( left_data );
+                if( imu_read3.readAccelerometerFrame( left_data ) ){
+                	left_accs.push_back( left_data );
+		}
         }
         imu_read3.closeFile();
 
@@ -59,9 +59,9 @@ int main()
         std::vector<Eigen::Vector4d> right_accs;
         while( !imu_read4.endOfFile() ){
                 Eigen::Vector4d right_data;
-                imu_read4.readFrame( right_data );
-
-                right_accs.push_back( right_data );
+                if( imu_read4.readAccelerometerFrame( right_data ) ){	
+	                right_accs.push_back( right_data );
+		}
         }
         imu_read4.closeFile();
 
@@ -72,9 +72,10 @@ int main()
         std::vector<Eigen::Vector4d> front_accs;
         while( !imu_read5.endOfFile() ){
                 Eigen::Vector4d front_data;
-                imu_read5.readFrame( front_data );
+                if( imu_read5.readAccelerometerFrame( front_data ) ){
 
-                front_accs.push_back( front_data );
+                	front_accs.push_back( front_data );
+		}
         }
         imu_read5.closeFile();
 
@@ -85,9 +86,9 @@ int main()
         std::vector<Eigen::Vector4d> back_accs;
         while( !imu_read6.endOfFile() ){
                 Eigen::Vector4d back_data;
-                imu_read6.readFrame( back_data );
-
-                back_accs.push_back( back_data );
+                if( imu_read6.readAccelerometerFrame( back_data ) ){
+                	back_accs.push_back( back_data );
+		}
         }
         imu_read6.closeFile();
 

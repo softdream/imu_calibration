@@ -413,7 +413,8 @@ public:
                 }
 		std::cout<<"Rotation 2 vector : "<<std::endl<<r_v<<std::endl;
 		this->rotation_vecs.push_back( r_v );
-		
+		//this->rotation_vecs.push_back( Vector3( 0, 0, -90 ) );	
+
 		r_v.setZero();
                 pre_time = data4[0](0);
                 pre_w = Vector3( data4[0](1) - this->biases(0),

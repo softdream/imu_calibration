@@ -75,13 +75,13 @@ int main()
 	std::vector<Eigen::Vector3d> pre_accs;
         std::vector<Eigen::Vector3d> now_accs;
 
-        pre_accs.push_back( Eigen::Vector3d( 0, 0, 1 ) );
-        pre_accs.push_back( Eigen::Vector3d( 0, 0, 1 ) );
-        pre_accs.push_back( Eigen::Vector3d( 0, 0, 1 ) );
+        pre_accs.push_back( Eigen::Vector3d( 0.033203, -0.001221, 0.969238 ) );
+        pre_accs.push_back( Eigen::Vector3d( 0.039551, -0.002197, 0.971191 ) );
+        pre_accs.push_back( Eigen::Vector3d( 0.027344, 0.004639, 0.975342 ) );
 
-        now_accs.push_back( Eigen::Vector3d( 0, -1, 0 ) );
-        now_accs.push_back( Eigen::Vector3d( -1, 0, 0 ) );
-        now_accs.push_back( Eigen::Vector3d( 0, 1, 0 ) );
+        now_accs.push_back( Eigen::Vector3d( 0.048584, -0.996338, -0.028320 ) );
+        now_accs.push_back( Eigen::Vector3d( 0.038330, -0.007080, 0.974121 ) );
+        now_accs.push_back( Eigen::Vector3d( -0.003418, 1.003906, -0.039307 ) );
 	
 	imu::CalibrateGyrometer<double>()( gyros, gyros_rotaion1, gyros_rotaion2, gyros_rotaion3, pre_accs, now_accs );
 
